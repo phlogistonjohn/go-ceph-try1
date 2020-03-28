@@ -21,7 +21,11 @@ jobs:
     - name: Get revive
       run: go get github.com/mgechev/revive
     - name: Run checks
-      run: make check
+      run: |
+        echo $GOBIN __ $GOPATH __ $PATH
+        export PATH=$PATH:$GOBIN
+        ls -l $GOBIN
+        make check
 
   # Run the test suite in a container per-ceph-codename
   test-suite:
