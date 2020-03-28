@@ -13,9 +13,6 @@ jobs:
   # Run static/code-quality checks
   check:
     runs-on: ubuntu-latest
-#    env:
-#      GOPATH: /tmp/go
-#      GOBIN: /tmp/go/bin
     steps:
     - uses: actions/setup-go@v2-beta
       with:
@@ -24,8 +21,7 @@ jobs:
     - name: Install revive
       run: go get github.com/mgechev/revive
     - name: Run checks
-      run: |
-        make check
+      run: make check
 
   # Run the test suite in a container per-ceph-codename
   test-suite:
