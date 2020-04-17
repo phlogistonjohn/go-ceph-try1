@@ -64,7 +64,8 @@ func (suite *RadosTestSuite) SetupTest() {
 	conn, err := NewConn()
 	require.NoError(suite.T(), err)
 	suite.conn = conn
-	suite.conn.ReadDefaultConfigFile()
+	err = suite.conn.ReadDefaultConfigFile()
+	require.NoError(suite.T(), err)
 }
 
 func (suite *RadosTestSuite) SetupConnection() {
@@ -105,7 +106,8 @@ func (suite *RadosTestSuite) TearDownSuite() {
 	require.NoError(suite.T(), err)
 	defer conn.Shutdown()
 
-	conn.ReadDefaultConfigFile()
+	err = conn.ReadDefaultConfigFile()
+	require.NoError(suite.T(), err)
 
 	if err = conn.Connect(); assert.NoError(suite.T(), err) {
 		err = conn.DeletePool(suite.pool)
@@ -191,7 +193,11 @@ func (suite *RadosTestSuite) TestReadConfigFile() {
 
 	// create conf file that changes log_file conf option
 	file, err := ioutil.TempFile("/tmp", "go-rados")
-	assert.NoError(suite.T(), err)
+	require.NoError(suite.T(), err)
+	defer func() {
+		assert.NoError(suite.T(), file.Close())
+		assert.NoError(suite.T(), os.Remove(file.Name()))
+	}()
 
 	next_val := prev_val + 1
 	conf := fmt.Sprintf("[global]\nlog_max_new = %d\n", next_val)
@@ -211,9 +217,6 @@ func (suite *RadosTestSuite) TestReadConfigFile() {
 
 	assert.NotEqual(suite.T(), prev_str, curr_str)
 	assert.Equal(suite.T(), curr_val, prev_val+1)
-
-	file.Close()
-	os.Remove(file.Name())
 }
 
 func (suite *RadosTestSuite) TestGetClusterStats() {
@@ -228,7 +231,8 @@ func (suite *RadosTestSuite) TestGetClusterStats() {
 	buf := make([]byte, 1<<20)
 	for i := 0; i < 10; i++ {
 		objname := suite.GenObjectName()
-		suite.ioctx.Write(objname, buf, 0)
+		err = suite.ioctx.Write(objname, buf, 0)
+		assert.NoError(suite.T(), err)
 	}
 
 	// wait a while for the stats to change
@@ -409,7 +413,8 @@ func (suite *RadosTestSuite) TestGetLargePoolList() {
 
 	defer func(origPools []string) {
 		for _, name := range names {
-			suite.conn.DeletePool(name)
+			err := suite.conn.DeletePool(name)
+			assert.NoError(suite.T(), err)
 		}
 		cleanPools, err := suite.conn.ListPools()
 		assert.NoError(suite.T(), err)
@@ -558,7 +563,8 @@ func (suite *RadosTestSuite) TestGetPoolStats() {
 	buf := make([]byte, 1<<20)
 	for i := 0; i < 10; i++ {
 		oid := suite.GenObjectName()
-		suite.ioctx.Write(oid, buf, 0)
+		err = suite.ioctx.Write(oid, buf, 0)
+		assert.NoError(suite.T(), err)
 	}
 
 	// wait a while for the stats to change
@@ -1199,17 +1205,4 @@ func (suite *RadosTestSuite) TestOpenIOContextInvalidPool() {
 
 func TestRadosTestSuite(t *testing.T) {
 	suite.Run(t, new(RadosTestSuite))
-}
-
-func TestRadosError(t *testing.T) {
-	err := getRadosError(0)
-	assert.NoError(t, err)
-
-	err = getRadosError(-5) // IO error
-	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "rados: ret=5, Input/output error")
-
-	err = getRadosError(345) // no such errno
-	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "rados: ret=345")
 }

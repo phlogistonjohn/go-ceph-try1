@@ -24,19 +24,6 @@ func GetUUID() string {
 	return uuid.Must(uuid.NewV4()).String()
 }
 
-func TestRBDError(t *testing.T) {
-	err := getError(0)
-	assert.NoError(t, err)
-
-	err = getError(-39) // NOTEMPTY (image still has a snapshot)
-	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "rbd: ret=39, Directory not empty")
-
-	err = getError(345) // no such errno
-	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "rbd: ret=345")
-}
-
 func TestVersion(t *testing.T) {
 	var major, minor, patch = Version()
 	assert.False(t, major < 0 || major > 1000, "invalid major")
@@ -548,7 +535,7 @@ func TestIOReaderWriter(t *testing.T) {
 	assert.NoError(t, err)
 
 	encoder := json.NewEncoder(img)
-	encoder.Encode(stats)
+	assert.NoError(t, encoder.Encode(stats))
 
 	err = img.Flush()
 	assert.NoError(t, err)
@@ -558,7 +545,7 @@ func TestIOReaderWriter(t *testing.T) {
 
 	var stats2 *ImageInfo
 	decoder := json.NewDecoder(img)
-	decoder.Decode(&stats2)
+	assert.NoError(t, decoder.Decode(&stats2))
 
 	assert.Equal(t, &stats, &stats2)
 

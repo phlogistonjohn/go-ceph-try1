@@ -9,35 +9,10 @@ package cephfs
 import "C"
 
 import (
-	"fmt"
 	"unsafe"
 
-	"github.com/ceph/go-ceph/internal/errutil"
 	"github.com/ceph/go-ceph/rados"
 )
-
-// revive:disable:exported Temporarily live with stuttering
-
-// CephFSError represents an error condition returned from the CephFS APIs.
-type CephFSError int
-
-// revive:enable:exported
-
-// Error returns the error string for the CephFSError type.
-func (e CephFSError) Error() string {
-	errno, s := errutil.FormatErrno(int(e))
-	if s == "" {
-		return fmt.Sprintf("cephfs: ret=%d", errno)
-	}
-	return fmt.Sprintf("cephfs: ret=%d, %s", errno, s)
-}
-
-func getError(e C.int) error {
-	if e == 0 {
-		return nil
-	}
-	return CephFSError(e)
-}
 
 // MountInfo exports ceph's ceph_mount_info from libcephfs.cc
 type MountInfo struct {
@@ -121,6 +96,14 @@ func (mount *MountInfo) GetConfigOption(option string) (string, error) {
 	return value, nil
 }
 
+// Init the file system client without actually mounting the file system.
+//
+// Implements:
+//  int ceph_init(struct ceph_mount_info *cmount);
+func (mount *MountInfo) Init() error {
+	return getError(C.ceph_init(mount.mount))
+}
+
 // Mount the file system, establishing a connection capable of I/O.
 //
 // Implements:
@@ -155,8 +138,15 @@ func (mount *MountInfo) Unmount() error {
 // Implements:
 //  int ceph_release(struct ceph_mount_info *cmount);
 func (mount *MountInfo) Release() error {
+	if mount.mount == nil {
+		return nil
+	}
 	ret := C.ceph_release(mount.mount)
-	return getError(ret)
+	if err := getError(ret); err != nil {
+		return err
+	}
+	mount.mount = nil
+	return nil
 }
 
 // SyncFs synchronizes all filesystem data to persistent media.
